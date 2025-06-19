@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: ubuntu:latest
+
+%files
+    requirements.txt /requirements.txt
+    env.yml /env.yml
+    src /src
+    genagg /genagg
+    results /results
+    main.py /main.py
+    model_settings.json /model_settings.json
+    model_settings_pna.json /model_settings_pna.json
+    model_settings_interleaved.json /model_settings_gcn.json
+    model_settings_fusion.json /model_settings_fusion.json
+    model_settings_megapna.json /model_settings_megapna.json
+
+%post
+    # Update and install necessary packages
+    apt-get update && apt-get install -y wget bzip2 tree time vim ncdu speedtest-cli build-essential
+
+    # Install Miniconda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    rm /tmp/miniconda.sh
+    export PATH=/opt/conda/bin:$PATH
+
+    # Initialize Conda for the shell
+    . /opt/conda/etc/profile.d/conda.sh
+
+    # Create and activate the Conda environment
+    conda env create -f /env.yml
+    echo ". /opt/conda/etc/profile.d/conda.sh && conda activate aml-env" >> /etc/profile
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate aml-env
+
+    # Install PyTorch and PyTorch Geometric
+    conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=11.8 -c pytorch -c nvidia
+    conda install pyg -c pyg
+
+    # Install additional Python dependencies
+    pip install -r /requirements.txt
+    
+    # Ensure /results is writable
+    mkdir -p /results
+    chmod -R 777 /results
+
+    mkdir -p /data
+    chmod -R 777 /data
+
+
+    # Clean up
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+    conda clean --all --yes
+
+%environment
+    # Ensure Conda is available in the container runtime environment
+    export PATH=/opt/conda/bin:$PATH
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate aml-env
+
+    export WANDB_API_KEY="ea7a55d9ed34345259ae31634a6b7fff2425082f"
+
+%runscript
+    # Run the main.py script with arguments
+    exec python /main.py "$@"
